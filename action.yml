@@ -1,23 +1,29 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Create Release'
+description: 'Create a release on Bytebase.'
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
+  icon: 'database'
   color: 'red'
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  url:
+    description: The bytebase URL.
     required: true
-    default: '1000'
+  token:
+    description: The Bytebase access token.
+    required: true
+  project:
+    description: 'The project on Bytebase. Format: projects/{project}'
+    required: true
+  file-pattern:
+    description:
+      'The file pattern matching migration files. Example: migrations/prod/*.sql'
+    required: true
 
-# Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
+  release:
+    description:
+      'The created release. Format: projects/{project}/release/{release}'
 
 runs:
   using: node20
