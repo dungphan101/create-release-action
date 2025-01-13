@@ -2,7 +2,6 @@ import * as core from '@actions/core'
 import * as hc from '@actions/http-client'
 import * as glob from '@actions/glob'
 import * as github from '@actions/github'
-import { wait } from './wait'
 import { readFile } from 'fs/promises'
 import path from 'path'
 
@@ -33,7 +32,7 @@ export async function run(): Promise<void> {
     const globber = await glob.create(filePattern)
     const versionReg = /^\d+/
 
-    let files: File[] = []
+    const files: File[] = []
     for await (const file of globber.globGenerator()) {
       const versionM = path.basename(file).match(versionReg)
       if (!versionM) {
@@ -69,7 +68,7 @@ export async function run(): Promise<void> {
       )
     }
 
-    let releaseFiles: ReleaseFile[] = []
+    const releaseFiles: ReleaseFile[] = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const sheet = sheetNames[i]
@@ -97,7 +96,11 @@ export async function run(): Promise<void> {
   }
 }
 
-async function createSheets(c: httpClient, project: string, sheets: Sheet[]) {
+async function createSheets(
+  c: httpClient,
+  project: string,
+  sheets: Sheet[]
+): Promise<string[]> {
   const url = `${c.url}/v1/${project}/sheets:batchCreate`
   const requests = sheets.map(e => {
     return {
@@ -134,7 +137,7 @@ async function createRelease(
   c: httpClient,
   project: string,
   releaseToCreate: Release
-) {
+): Promise<string> {
   const url = `${c.url}/v1/${project}/releases`
 
   const response = await c.c.postJson<{
