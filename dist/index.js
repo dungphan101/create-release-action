@@ -32503,7 +32503,7 @@ async function run() {
             });
         }
         const releaseToCreate = {
-            title: `release`,
+            title: `${repo.owner}/${repo.repo}@${sha}`,
             files: releaseFiles,
             vcsSource: {
                 vcsType: 'GITHUB',

@@ -80,7 +80,7 @@ export async function run(): Promise<void> {
       })
     }
     const releaseToCreate: Release = {
-      title: `release`,
+      title: `${repo.owner}/${repo.repo}@${sha}`,
       files: releaseFiles,
       vcsSource: {
         vcsType: 'GITHUB',
