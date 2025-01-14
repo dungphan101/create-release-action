@@ -17,6 +17,7 @@ export async function run(): Promise<void> {
     const filePattern = core.getInput('file-pattern', { required: true })
 
     const { serverUrl, repo, sha } = github.context
+    const pwd = process.env.GITHUB_PATH as string
     const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`
 
     const c: httpClient = {
@@ -34,6 +35,7 @@ export async function run(): Promise<void> {
 
     const files: File[] = []
     for await (const file of globber.globGenerator()) {
+      const relativePath = path.relative(pwd, file)
       const versionM = path.basename(file).match(versionReg)
       if (!versionM) {
         core.info(`failed to get version, ignore ${file}`)
@@ -43,7 +45,7 @@ export async function run(): Promise<void> {
       const content = await readFile(file, { encoding: 'base64' })
 
       files.push({
-        path: file,
+        path: relativePath,
         version: version,
         content: content,
         type: 'VERSIONED'
