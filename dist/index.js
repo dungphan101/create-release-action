@@ -32452,7 +32452,6 @@ async function run() {
         const project = core.getInput('project', { required: true });
         const filePattern = core.getInput('file-pattern', { required: true });
         const { serverUrl, repo, sha } = github.context;
-        const pwd = process.env.GITHUB_PATH;
         const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`;
         const c = {
             url: url,
@@ -32465,9 +32464,10 @@ async function run() {
         };
         const globber = await glob.create(filePattern);
         const versionReg = /^\d+/;
+        const fileReg = new RegExp(filePattern);
         const files = [];
         for await (const file of globber.globGenerator()) {
-            const relativePath = path_1.default.relative(pwd, file);
+            const relativePath = file.match(fileReg)?.[0] ?? file;
             const versionM = path_1.default.basename(file).match(versionReg);
             if (!versionM) {
                 core.info(`failed to get version, ignore ${file}`);
