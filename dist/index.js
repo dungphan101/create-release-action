@@ -32536,6 +32536,7 @@ async function run() {
             }
         };
         const release = await createRelease(c, project, releaseToCreate);
+        core.info(`Release created. View at ${c.url}/${release} on Bytebase.`);
         core.setOutput('release', release);
     }
     catch (error) {
