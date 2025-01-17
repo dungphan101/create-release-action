@@ -32451,6 +32451,21 @@ async function run() {
         const token = core.getInput('token', { required: true });
         const project = core.getInput('project', { required: true });
         const filePattern = core.getInput('file-pattern', { required: true });
+        const checkReleaseLevel = core.getInput('check-release');
+        const targets = core.getInput('targets');
+        switch (checkReleaseLevel) {
+            case 'SKIP':
+                break;
+            case 'FAIL_ON_WARNING':
+                break;
+            case 'FAIL_ON_ERROR':
+                break;
+            default:
+                throw new Error(`unknown check-release value ${checkReleaseLevel}`);
+        }
+        if (checkReleaseLevel !== 'SKIP' && targets === '') {
+            throw new Error(`targets must be set because check-release is not SKIP`);
+        }
         const { serverUrl, repo, sha } = github.context;
         const pwd = process.env.GITHUB_WORKSPACE;
         const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`;
@@ -32475,16 +32490,23 @@ async function run() {
             }
             const version = versionM[0];
             const content = await (0, promises_1.readFile)(file, { encoding: 'base64' });
+            const filename = path_1.default.parse(relativePath).name;
+            let changeType = 'DDL';
+            if (filename.endsWith('dml')) {
+                changeType = 'DML';
+            }
             files.push({
                 path: relativePath,
                 version: version,
                 content: content,
-                type: 'VERSIONED'
+                type: 'VERSIONED',
+                changeType: changeType
             });
         }
         if (files.length === 0) {
             throw new Error(`no migration files found, the file pattern is ${filePattern}`);
         }
+        await doCheckRelease(c, project, files, targets.split(','), checkReleaseLevel);
         const sheets = files.map(e => ({
             title: `sheet for ${e.path}`,
             content: e.content
@@ -32501,7 +32523,8 @@ async function run() {
                 path: file.path,
                 version: file.version,
                 sheet: sheet,
-                type: 'VERSIONED'
+                type: 'VERSIONED',
+                changeType: file.changeType
             });
         }
         const releaseToCreate = {
@@ -32552,6 +32575,54 @@ async function createRelease(c, project, releaseToCreate) {
         throw new Error(`expect result to be not null, get ${response.result}`);
     }
     return response.result.name;
+}
+async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
+    if (checkReleaseLevel === 'SKIP') {
+        return;
+    }
+    const url = `${c.url}/v1/${project}/releases:check`;
+    const filesToCheck = files.map(e => {
+        return {
+            path: e.path,
+            statement: Buffer.from(e.content, 'base64').toString('utf8'),
+            version: e.version,
+            changeType: e.changeType,
+            type: e.type
+        };
+    });
+    const req = {
+        release: {
+            files: filesToCheck
+        },
+        targets: targets
+    };
+    const response = await c.c.postJson(url, req);
+    if (response.statusCode !== 200) {
+        throw new Error(`failed to create release, ${response.statusCode}, ${response.result?.message}`);
+    }
+    if (!response.result) {
+        throw new Error(`expect result to be not null, get ${response.result}`);
+    }
+    let hasError = false;
+    let hasWarning = false;
+    for (const result of response.result.results) {
+        const advices = result.advices;
+        const file = result.file;
+        advices.forEach((advice) => {
+            const annotation = `::${advice.status} file=${file},line=${advice.line},col=${advice.column},title=${advice.title} (${advice.code})::${advice.content}. https://www.bytebase.com/docs/reference/error-code/advisor#${advice.code}`;
+            // Emit annotations for each advice
+            core.info(annotation);
+            if (advice.status === 'ERROR') {
+                hasError = true;
+            }
+            if (advice.status === 'WARNING') {
+                hasWarning = true;
+            }
+        });
+    }
+    if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
+        throw new Error(`Release checks find ERROR or WARNING violations`);
+    }
 }
 
 
