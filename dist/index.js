@@ -32495,6 +32495,9 @@ async function run() {
             if (filename.endsWith('dml')) {
                 changeType = 'DML';
             }
+            if (filename.endsWith('ghost')) {
+                changeType = 'DDL_GHOST';
+            }
             files.push({
                 path: relativePath,
                 version: version,

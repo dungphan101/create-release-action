@@ -63,9 +63,12 @@ export async function run(): Promise<void> {
       const content = await readFile(file, { encoding: 'base64' })
 
       const filename = path.parse(relativePath).name
-      let changeType: 'DDL' | 'DML' = 'DDL'
+      let changeType: changeType = 'DDL'
       if (filename.endsWith('dml')) {
         changeType = 'DML'
+      }
+      if (filename.endsWith('ghost')) {
+        changeType = 'DDL_GHOST'
       }
 
       files.push({
@@ -288,12 +291,14 @@ interface Sheet {
   content: string // base64 encoded
 }
 
+type changeType = 'DDL' | 'DML' | 'DDL_GHOST'
+
 interface File {
   content: string // base64 encoded
   path: string
   version: string
   type: 'VERSIONED'
-  changeType: 'DDL' | 'DML'
+  changeType: changeType
 }
 
 interface ReleaseFile {
@@ -301,7 +306,7 @@ interface ReleaseFile {
   version: string
   sheet: string
   type: 'VERSIONED'
-  changeType: 'DDL' | 'DML'
+  changeType: changeType
 }
 
 interface Release {
