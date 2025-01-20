@@ -15,6 +15,7 @@ export async function run(): Promise<void> {
     const token = core.getInput('token', { required: true })
     const project = core.getInput('project', { required: true })
     const filePattern = core.getInput('file-pattern', { required: true })
+    const validateOnly = core.getBooleanInput('validate-only')
 
     const checkReleaseLevel = core.getInput('check-release')
     const targets = core.getInput('targets')
@@ -92,6 +93,10 @@ export async function run(): Promise<void> {
       targets.split(','),
       checkReleaseLevel
     )
+
+    if (validateOnly) {
+      return
+    }
 
     const sheets = files.map(e => ({
       title: `sheet for ${e.path}`,

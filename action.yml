@@ -25,6 +25,8 @@ inputs:
       `FAIL_ON_WARNING`, `FAIL_ON_ERROR`. `targets` must be provided if
       `check-release` is set to `FAIL_ON_ERROR` or `FAIL_ON_WARNING`.
     default: 'FAIL_ON_ERROR'
+  validate-only:
+    description: Used to check release only. Won't create the release.
   targets:
     description: >
       The database group or databases to check the release against. This must be

@@ -36,4 +36,7 @@ jobs:
           token: ${{ steps.login.outputs.token }}
           project: ${{ env.BYTEBASE_PROJECT }}
           file-pattern: 'migrations/*.sql'
+          check-release: 'FAIL_ON_ERROR'
+          validate-ony: false # set to true to check release only
+          target: 'instances/mysql/databases/db1'
 ```

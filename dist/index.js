@@ -32451,6 +32451,7 @@ async function run() {
         const token = core.getInput('token', { required: true });
         const project = core.getInput('project', { required: true });
         const filePattern = core.getInput('file-pattern', { required: true });
+        const validateOnly = core.getBooleanInput('validate-only');
         const checkReleaseLevel = core.getInput('check-release');
         const targets = core.getInput('targets');
         switch (checkReleaseLevel) {
@@ -32510,6 +32511,9 @@ async function run() {
             throw new Error(`no migration files found, the file pattern is ${filePattern}`);
         }
         await doCheckRelease(c, project, files, targets.split(','), checkReleaseLevel);
+        if (validateOnly) {
+            return;
+        }
         const sheets = files.map(e => ({
             title: `sheet for ${e.path}`,
             content: e.content
