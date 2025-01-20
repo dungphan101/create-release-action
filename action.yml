@@ -1,4 +1,4 @@
-name: 'Create Release'
+name: 'Bytebase Create Release'
 description: 'Create a release on Bytebase.'
 
 branding:
