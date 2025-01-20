@@ -42,7 +42,7 @@ jobs:
           service-account-key: ${{ secrets.BYTEBASE_PASSWORD }}
       - name: Create release
         id: create_release
-        uses: bytebase/actions-create-release@main
+        uses: bytebase/create-release-action@main
         with:
           url: ${{ env.BYTEBASE_URL }}
           token: ${{ steps.login.outputs.token }}
