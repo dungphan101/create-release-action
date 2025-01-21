@@ -27,6 +27,7 @@ inputs:
     default: 'FAIL_ON_ERROR'
   validate-only:
     description: Used to check release only. Won't create the release.
+    default: 'false'
   targets:
     description: >
       The database group or databases to check the release against. This must be
