@@ -237,6 +237,7 @@ async function doCheckRelease(
     message: string
     results: {
       file: string
+      target: string
       advices: any[]
     }[]
   }>(url, req)
@@ -251,33 +252,47 @@ async function doCheckRelease(
     throw new Error(`expect result to be not null, get ${response.result}`)
   }
 
+  // Aggregate advice by file and targets.
+  // Key is combination of file and advice's specific fields.
+  let adviceMapByFileTarget: Map<
+    string,
+    {
+      file: string
+      advice: any
+      targets: string[]
+    }
+  > = new Map()
   let hasError = false
   let hasWarning = false
   for (const result of response.result.results) {
-    const advices = result.advices
     const file = result.file
+    const target = result.target
+    const advices = result.advices
 
-    advices.forEach(
-      (advice: {
-        status: string
-        line: any
-        column: any
-        title: any
-        code: any
-        content: any
-      }) => {
-        const annotation = `::${advice.status} file=${file},line=${advice.line},col=${advice.column},title=${advice.title} (${advice.code})::${advice.content}. https://www.bytebase.com/docs/reference/error-code/advisor#${advice.code}`
-        // Emit annotations for each advice
-        core.info(annotation)
-
-        if (advice.status === 'ERROR') {
-          hasError = true
-        }
-        if (advice.status === 'WARNING') {
-          hasWarning = true
-        }
+    for (const advice of advices) {
+      const key = `${file}-${advice.status}-${advice.code}-${advice.line}-${advice.column}-${advice.title}`
+      if (!adviceMapByFileTarget.has(key)) {
+        adviceMapByFileTarget.set(key, {
+          file: file,
+          advice: advice,
+          targets: []
+        })
       }
-    )
+      adviceMapByFileTarget.get(key)?.targets.push(target)
+      if (advice.status === 'ERROR') {
+        hasError = true
+      }
+      if (advice.status === 'WARNING') {
+        hasWarning = true
+      }
+    }
+  }
+
+  for (const [_, value] of adviceMapByFileTarget) {
+    const { file, advice, targets } = value
+    const annotation = `::${advice.status} file=${file},line=${advice.line},col=${advice.column},title=${advice.title} (${advice.code})::${advice.content}. Targets: ${targets.join(', ')} https://www.bytebase.com/docs/reference/error-code/advisor#${advice.code}`
+    // Emit annotations for each advice
+    core.info(annotation)
   }
 
   if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
