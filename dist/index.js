@@ -8883,6 +8883,374 @@ exports.Deprecation = Deprecation;
 
 /***/ }),
 
+/***/ 9223:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const fs = __nccwpck_require__(9896)
+const path = __nccwpck_require__(6928)
+const os = __nccwpck_require__(857)
+const crypto = __nccwpck_require__(6982)
+const packageJson = __nccwpck_require__(5778)
+
+const version = packageJson.version
+
+const LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg
+
+// Parse src into an Object
+function parse (src) {
+  const obj = {}
+
+  // Convert buffer to string
+  let lines = src.toString()
+
+  // Convert line breaks to same format
+  lines = lines.replace(/\r\n?/mg, '\n')
+
+  let match
+  while ((match = LINE.exec(lines)) != null) {
+    const key = match[1]
+
+    // Default undefined or null to empty string
+    let value = (match[2] || '')
+
+    // Remove whitespace
+    value = value.trim()
+
+    // Check if double quoted
+    const maybeQuote = value[0]
+
+    // Remove surrounding quotes
+    value = value.replace(/^(['"`])([\s\S]*)\1$/mg, '$2')
+
+    // Expand newlines if double quoted
+    if (maybeQuote === '"') {
+      value = value.replace(/\\n/g, '\n')
+      value = value.replace(/\\r/g, '\r')
+    }
+
+    // Add to object
+    obj[key] = value
+  }
+
+  return obj
+}
+
+function _parseVault (options) {
+  const vaultPath = _vaultPath(options)
+
+  // Parse .env.vault
+  const result = DotenvModule.configDotenv({ path: vaultPath })
+  if (!result.parsed) {
+    const err = new Error(`MISSING_DATA: Cannot parse ${vaultPath} for an unknown reason`)
+    err.code = 'MISSING_DATA'
+    throw err
+  }
+
+  // handle scenario for comma separated keys - for use with key rotation
+  // example: DOTENV_KEY="dotenv://:key_1234@dotenvx.com/vault/.env.vault?environment=prod,dotenv://:key_7890@dotenvx.com/vault/.env.vault?environment=prod"
+  const keys = _dotenvKey(options).split(',')
+  const length = keys.length
+
+  let decrypted
+  for (let i = 0; i < length; i++) {
+    try {
+      // Get full key
+      const key = keys[i].trim()
+
+      // Get instructions for decrypt
+      const attrs = _instructions(result, key)
+
+      // Decrypt
+      decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key)
+
+      break
+    } catch (error) {
+      // last key
+      if (i + 1 >= length) {
+        throw error
+      }
+      // try next key
+    }
+  }
+
+  // Parse decrypted .env string
+  return DotenvModule.parse(decrypted)
+}
+
+function _log (message) {
+  console.log(`[dotenv@${version}][INFO] ${message}`)
+}
+
+function _warn (message) {
+  console.log(`[dotenv@${version}][WARN] ${message}`)
+}
+
+function _debug (message) {
+  console.log(`[dotenv@${version}][DEBUG] ${message}`)
+}
+
+function _dotenvKey (options) {
+  // prioritize developer directly setting options.DOTENV_KEY
+  if (options && options.DOTENV_KEY && options.DOTENV_KEY.length > 0) {
+    return options.DOTENV_KEY
+  }
+
+  // secondary infra already contains a DOTENV_KEY environment variable
+  if (process.env.DOTENV_KEY && process.env.DOTENV_KEY.length > 0) {
+    return process.env.DOTENV_KEY
+  }
+
+  // fallback to empty string
+  return ''
+}
+
+function _instructions (result, dotenvKey) {
+  // Parse DOTENV_KEY. Format is a URI
+  let uri
+  try {
+    uri = new URL(dotenvKey)
+  } catch (error) {
+    if (error.code === 'ERR_INVALID_URL') {
+      const err = new Error('INVALID_DOTENV_KEY: Wrong format. Must be in valid uri format like dotenv://:key_1234@dotenvx.com/vault/.env.vault?environment=development')
+      err.code = 'INVALID_DOTENV_KEY'
+      throw err
+    }
+
+    throw error
+  }
+
+  // Get decrypt key
+  const key = uri.password
+  if (!key) {
+    const err = new Error('INVALID_DOTENV_KEY: Missing key part')
+    err.code = 'INVALID_DOTENV_KEY'
+    throw err
+  }
+
+  // Get environment
+  const environment = uri.searchParams.get('environment')
+  if (!environment) {
+    const err = new Error('INVALID_DOTENV_KEY: Missing environment part')
+    err.code = 'INVALID_DOTENV_KEY'
+    throw err
+  }
+
+  // Get ciphertext payload
+  const environmentKey = `DOTENV_VAULT_${environment.toUpperCase()}`
+  const ciphertext = result.parsed[environmentKey] // DOTENV_VAULT_PRODUCTION
+  if (!ciphertext) {
+    const err = new Error(`NOT_FOUND_DOTENV_ENVIRONMENT: Cannot locate environment ${environmentKey} in your .env.vault file.`)
+    err.code = 'NOT_FOUND_DOTENV_ENVIRONMENT'
+    throw err
+  }
+
+  return { ciphertext, key }
+}
+
+function _vaultPath (options) {
+  let possibleVaultPath = null
+
+  if (options && options.path && options.path.length > 0) {
+    if (Array.isArray(options.path)) {
+      for (const filepath of options.path) {
+        if (fs.existsSync(filepath)) {
+          possibleVaultPath = filepath.endsWith('.vault') ? filepath : `${filepath}.vault`
+        }
+      }
+    } else {
+      possibleVaultPath = options.path.endsWith('.vault') ? options.path : `${options.path}.vault`
+    }
+  } else {
+    possibleVaultPath = path.resolve(process.cwd(), '.env.vault')
+  }
+
+  if (fs.existsSync(possibleVaultPath)) {
+    return possibleVaultPath
+  }
+
+  return null
+}
+
+function _resolveHome (envPath) {
+  return envPath[0] === '~' ? path.join(os.homedir(), envPath.slice(1)) : envPath
+}
+
+function _configVault (options) {
+  _log('Loading env from encrypted .env.vault')
+
+  const parsed = DotenvModule._parseVault(options)
+
+  let processEnv = process.env
+  if (options && options.processEnv != null) {
+    processEnv = options.processEnv
+  }
+
+  DotenvModule.populate(processEnv, parsed, options)
+
+  return { parsed }
+}
+
+function configDotenv (options) {
+  const dotenvPath = path.resolve(process.cwd(), '.env')
+  let encoding = 'utf8'
+  const debug = Boolean(options && options.debug)
+
+  if (options && options.encoding) {
+    encoding = options.encoding
+  } else {
+    if (debug) {
+      _debug('No encoding is specified. UTF-8 is used by default')
+    }
+  }
+
+  let optionPaths = [dotenvPath] // default, look for .env
+  if (options && options.path) {
+    if (!Array.isArray(options.path)) {
+      optionPaths = [_resolveHome(options.path)]
+    } else {
+      optionPaths = [] // reset default
+      for (const filepath of options.path) {
+        optionPaths.push(_resolveHome(filepath))
+      }
+    }
+  }
+
+  // Build the parsed data in a temporary object (because we need to return it).  Once we have the final
+  // parsed data, we will combine it with process.env (or options.processEnv if provided).
+  let lastError
+  const parsedAll = {}
+  for (const path of optionPaths) {
+    try {
+      // Specifying an encoding returns a string instead of a buffer
+      const parsed = DotenvModule.parse(fs.readFileSync(path, { encoding }))
+
+      DotenvModule.populate(parsedAll, parsed, options)
+    } catch (e) {
+      if (debug) {
+        _debug(`Failed to load ${path} ${e.message}`)
+      }
+      lastError = e
+    }
+  }
+
+  let processEnv = process.env
+  if (options && options.processEnv != null) {
+    processEnv = options.processEnv
+  }
+
+  DotenvModule.populate(processEnv, parsedAll, options)
+
+  if (lastError) {
+    return { parsed: parsedAll, error: lastError }
+  } else {
+    return { parsed: parsedAll }
+  }
+}
+
+// Populates process.env from .env file
+function config (options) {
+  // fallback to original dotenv if DOTENV_KEY is not set
+  if (_dotenvKey(options).length === 0) {
+    return DotenvModule.configDotenv(options)
+  }
+
+  const vaultPath = _vaultPath(options)
+
+  // dotenvKey exists but .env.vault file does not exist
+  if (!vaultPath) {
+    _warn(`You set DOTENV_KEY but you are missing a .env.vault file at ${vaultPath}. Did you forget to build it?`)
+
+    return DotenvModule.configDotenv(options)
+  }
+
+  return DotenvModule._configVault(options)
+}
+
+function decrypt (encrypted, keyStr) {
+  const key = Buffer.from(keyStr.slice(-64), 'hex')
+  let ciphertext = Buffer.from(encrypted, 'base64')
+
+  const nonce = ciphertext.subarray(0, 12)
+  const authTag = ciphertext.subarray(-16)
+  ciphertext = ciphertext.subarray(12, -16)
+
+  try {
+    const aesgcm = crypto.createDecipheriv('aes-256-gcm', key, nonce)
+    aesgcm.setAuthTag(authTag)
+    return `${aesgcm.update(ciphertext)}${aesgcm.final()}`
+  } catch (error) {
+    const isRange = error instanceof RangeError
+    const invalidKeyLength = error.message === 'Invalid key length'
+    const decryptionFailed = error.message === 'Unsupported state or unable to authenticate data'
+
+    if (isRange || invalidKeyLength) {
+      const err = new Error('INVALID_DOTENV_KEY: It must be 64 characters long (or more)')
+      err.code = 'INVALID_DOTENV_KEY'
+      throw err
+    } else if (decryptionFailed) {
+      const err = new Error('DECRYPTION_FAILED: Please check your DOTENV_KEY')
+      err.code = 'DECRYPTION_FAILED'
+      throw err
+    } else {
+      throw error
+    }
+  }
+}
+
+// Populate process.env with parsed values
+function populate (processEnv, parsed, options = {}) {
+  const debug = Boolean(options && options.debug)
+  const override = Boolean(options && options.override)
+
+  if (typeof parsed !== 'object') {
+    const err = new Error('OBJECT_REQUIRED: Please check the processEnv argument being passed to populate')
+    err.code = 'OBJECT_REQUIRED'
+    throw err
+  }
+
+  // Set process.env
+  for (const key of Object.keys(parsed)) {
+    if (Object.prototype.hasOwnProperty.call(processEnv, key)) {
+      if (override === true) {
+        processEnv[key] = parsed[key]
+      }
+
+      if (debug) {
+        if (override === true) {
+          _debug(`"${key}" is already defined and WAS overwritten`)
+        } else {
+          _debug(`"${key}" is already defined and was NOT overwritten`)
+        }
+      }
+    } else {
+      processEnv[key] = parsed[key]
+    }
+  }
+}
+
+const DotenvModule = {
+  configDotenv,
+  _configVault,
+  _parseVault,
+  config,
+  decrypt,
+  parse,
+  populate
+}
+
+module.exports.configDotenv = DotenvModule.configDotenv
+module.exports._configVault = DotenvModule._configVault
+module.exports._parseVault = DotenvModule._parseVault
+module.exports.config = DotenvModule.config
+module.exports.decrypt = DotenvModule.decrypt
+module.exports.parse = DotenvModule.parse
+module.exports.populate = DotenvModule.populate
+
+module.exports = DotenvModule
+
+
+/***/ }),
+
 /***/ 6274:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -32439,8 +32807,10 @@ const core = __importStar(__nccwpck_require__(9999));
 const hc = __importStar(__nccwpck_require__(787));
 const glob = __importStar(__nccwpck_require__(8505));
 const github = __importStar(__nccwpck_require__(2819));
+const dotenv_1 = __importDefault(__nccwpck_require__(9223));
 const promises_1 = __nccwpck_require__(1943);
 const path_1 = __importDefault(__nccwpck_require__(6928));
+dotenv_1.default.config();
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -32464,12 +32834,29 @@ async function run() {
             default:
                 throw new Error(`unknown check-release value ${checkReleaseLevel}`);
         }
+        core.debug('start to create comment with check results');
+        const githubToken = core.getInput('GITHUB_TOKEN');
+        const octokit = github.getOctokit(githubToken);
+        let message = `## Release Check Summary\n\n`;
+        const commentRes = await octokit.rest.issues.createComment({
+            owner: 'bytebase',
+            repo: 'cicd-github-actions-example',
+            issue_number: 35,
+            body: message
+        });
+        core.debug(`comment response: ${JSON.stringify(commentRes)}`);
+        core.debug(`comment created at ${commentRes.data.html_url}`);
         if (checkReleaseLevel !== 'SKIP' && targets === '') {
             throw new Error(`targets must be set because check-release is not SKIP`);
         }
         const { serverUrl, repo, sha } = github.context;
         const pwd = process.env.GITHUB_WORKSPACE;
         const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`;
+        core.debug(`serverUrl: ${serverUrl}`);
+        core.debug(`repo: ${repo.owner}/${repo.repo}`);
+        core.debug(`sha: ${sha}`);
+        core.debug(`commitUrl: ${commitUrl}`);
+        core.debug(`pwd: ${pwd}`);
         const c = {
             url: url,
             token: token,
@@ -32506,6 +32893,10 @@ async function run() {
                 type: 'VERSIONED',
                 changeType: changeType
             });
+            core.debug(`file: ${relativePath}`);
+            core.debug(`version: ${version}`);
+            core.debug(`content: ${content}`);
+            core.debug(`changeType: ${changeType}`);
         }
         if (files.length === 0) {
             throw new Error(`no migration files found, the file pattern is ${filePattern}`);
@@ -32598,6 +32989,7 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
             type: e.type
         };
     });
+    core.debug(`filesToCheck: ${JSON.stringify(filesToCheck)}`);
     const req = {
         release: {
             files: filesToCheck
@@ -32605,32 +32997,79 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
         targets: targets
     };
     const response = await c.c.postJson(url, req);
+    core.debug(`check release response: ${JSON.stringify(response)}`);
     if (response.statusCode !== 200) {
         throw new Error(`failed to create release, ${response.statusCode}, ${response.result?.message}`);
     }
     if (!response.result) {
         throw new Error(`expect result to be not null, get ${response.result}`);
     }
+    // Aggregate advice by file and targets.
+    // Key is combination of file and advice's specific fields.
+    let adviceMapByFileTarget = new Map();
     let hasError = false;
     let hasWarning = false;
     for (const result of response.result.results) {
-        const advices = result.advices;
         const file = result.file;
-        advices.forEach((advice) => {
-            const annotation = `::${advice.status} file=${file},line=${advice.line},col=${advice.column},title=${advice.title} (${advice.code})::${advice.content}. https://www.bytebase.com/docs/reference/error-code/advisor#${advice.code}`;
-            // Emit annotations for each advice
-            core.info(annotation);
+        const target = result.target;
+        const advices = result.advices;
+        for (const advice of advices) {
+            const key = `${file}-${advice.status}-${advice.code}-${advice.line}-${advice.column}-${advice.title}`;
+            if (!adviceMapByFileTarget.has(key)) {
+                adviceMapByFileTarget.set(key, {
+                    file: file,
+                    advice: advice,
+                    targets: []
+                });
+            }
+            adviceMapByFileTarget.get(key)?.targets.push(target);
             if (advice.status === 'ERROR') {
                 hasError = true;
             }
             if (advice.status === 'WARNING') {
                 hasWarning = true;
             }
-        });
+        }
     }
+    for (const [_, value] of adviceMapByFileTarget) {
+        const { file, advice, targets } = value;
+        const annotation = `::${advice.status} file=${file},line=${advice.line},col=${advice.column},title=${advice.title} (${advice.code})::${advice.content}. Targets: ${targets.join(', ')} https://www.bytebase.com/docs/reference/error-code/advisor#${advice.code}`;
+        // Emit annotations for each advice
+        core.info(annotation);
+    }
+    await handleCheckResponseForComment(response.result);
     if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
         throw new Error(`Release checks find ERROR or WARNING violations`);
     }
+}
+// Create a comment on the pull request with the release check summary results.
+// Including the total affected rows, overall risk level, and detailed results.
+async function handleCheckResponseForComment(res) {
+    core.debug('start to create comment with check results');
+    const context = github.context;
+    if (context.payload.pull_request == null) {
+        core.setFailed('No pull request found.');
+        return;
+    }
+    const pull_request_number = context.payload.pull_request.number;
+    const githubToken = core.getInput('GITHUB_TOKEN');
+    const octokit = github.getOctokit(githubToken);
+    let message = `## Release Check Summary\n\n`;
+    message += `**Total Affected Rows:** ${res.affectedRows}\n`;
+    message += `**Overall Risk Level:** ${res.riskLevel}\n\n`;
+    message += `### Detailed Results\n`;
+    message += `| File | Target | Affected Rows | Risk Level |\n`;
+    message += `| ---- | ------ | ------------- | ---------- |\n`;
+    for (const result of res.results) {
+        message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${result.riskLevel} |\n`;
+    }
+    const commentRes = await octokit.rest.issues.createComment({
+        ...context.repo,
+        issue_number: pull_request_number,
+        body: message
+    });
+    core.debug(`comment response: ${JSON.stringify(commentRes)}`);
+    core.debug(`comment created at ${commentRes.data.html_url}`);
 }
 
 
@@ -34506,6 +34945,14 @@ function parseParams (str) {
 
 module.exports = parseParams
 
+
+/***/ }),
+
+/***/ 5778:
+/***/ ((module) => {
+
+"use strict";
+module.exports = /*#__PURE__*/JSON.parse('{"name":"dotenv","version":"16.4.7","description":"Loads environment variables from .env file","main":"lib/main.js","types":"lib/main.d.ts","exports":{".":{"types":"./lib/main.d.ts","require":"./lib/main.js","default":"./lib/main.js"},"./config":"./config.js","./config.js":"./config.js","./lib/env-options":"./lib/env-options.js","./lib/env-options.js":"./lib/env-options.js","./lib/cli-options":"./lib/cli-options.js","./lib/cli-options.js":"./lib/cli-options.js","./package.json":"./package.json"},"scripts":{"dts-check":"tsc --project tests/types/tsconfig.json","lint":"standard","pretest":"npm run lint && npm run dts-check","test":"tap run --allow-empty-coverage --disable-coverage --timeout=60000","test:coverage":"tap run --show-full-coverage --timeout=60000 --coverage-report=lcov","prerelease":"npm test","release":"standard-version"},"repository":{"type":"git","url":"git://github.com/motdotla/dotenv.git"},"funding":"https://dotenvx.com","keywords":["dotenv","env",".env","environment","variables","config","settings"],"readmeFilename":"README.md","license":"BSD-2-Clause","devDependencies":{"@types/node":"^18.11.3","decache":"^4.6.2","sinon":"^14.0.1","standard":"^17.0.0","standard-version":"^9.5.0","tap":"^19.2.0","typescript":"^4.8.4"},"engines":{"node":">=12"},"browser":{"fs":false}}');
 
 /***/ })
 
