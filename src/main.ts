@@ -204,6 +204,18 @@ async function createRelease(
   return response.result.name
 }
 
+interface CheckReleaseResponse {
+  results: {
+    file: string
+    target: string
+    advices: any[]
+    affectedRows: number
+    riskLevel: string
+  }[]
+  affectedRows: number
+  riskLevel: string
+}
+
 async function doCheckRelease(
   c: httpClient,
   project: string,
@@ -233,14 +245,12 @@ async function doCheckRelease(
     targets: targets
   }
 
-  const response = await c.c.postJson<{
-    message: string
-    results: {
-      file: string
-      target: string
-      advices: any[]
-    }[]
-  }>(url, req)
+  const response = await c.c.postJson<
+    {
+      // Only when error occurs, message will be set.
+      message?: string
+    } & CheckReleaseResponse
+  >(url, req)
 
   if (response.statusCode !== 200) {
     throw new Error(
@@ -295,9 +305,39 @@ async function doCheckRelease(
     core.info(annotation)
   }
 
+  await handleCheckResponseForComment(response.result)
+
   if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
     throw new Error(`Release checks find ERROR or WARNING violations`)
   }
+}
+
+// Create a comment on the pull request with the release check summary results.
+// Including the total affected rows, overall risk level, and detailed results.
+async function handleCheckResponseForComment(res: CheckReleaseResponse) {
+  const context = github.context
+  if (context.payload.pull_request == null) {
+    core.setFailed('No pull request found.')
+    return
+  }
+  const pull_request_number = context.payload.pull_request.number
+  const githubToken = core.getInput('GITHUB_TOKEN')
+  const octokit = github.getOctokit(githubToken)
+
+  let message = `## Release Check Summary\n\n`
+  message += `**Total Affected Rows:** ${res.affectedRows}\n`
+  message += `**Overall Risk Level:** ${res.riskLevel}\n\n`
+  message += `### Detailed Results\n`
+  message += `| File | Target | Affected Rows | Risk Level |\n`
+  message += `| ---- | ------ | ------------- | ---------- |\n`
+  for (const result of res.results) {
+    message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${result.riskLevel} |\n`
+  }
+  await octokit.rest.issues.createComment({
+    ...context.repo,
+    issue_number: pull_request_number,
+    body: message
+  })
 }
 
 interface httpClient {
