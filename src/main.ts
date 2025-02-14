@@ -16,20 +16,9 @@ export async function run(): Promise<void> {
     const project = core.getInput('project', { required: true })
     const filePattern = core.getInput('file-pattern', { required: true })
     const validateOnly = core.getBooleanInput('validate-only')
-    const debug = core.getBooleanInput('debug')
 
     const checkReleaseLevel = core.getInput('check-release')
     const targets = core.getInput('targets')
-
-    if (debug) {
-      core.info(`url: ${url}`)
-      core.info(`token: ${token}`)
-      core.info(`project: ${project}`)
-      core.info(`file-pattern: ${filePattern}`)
-      core.info(`validate-only: ${validateOnly}`)
-      core.info(`check-release: ${checkReleaseLevel}`)
-      core.info(`targets: ${targets}`)
-    }
 
     switch (checkReleaseLevel) {
       case 'SKIP':
@@ -50,13 +39,11 @@ export async function run(): Promise<void> {
     const pwd = process.env.GITHUB_WORKSPACE as string
     const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`
 
-    if (debug) {
-      core.info(`serverUrl: ${serverUrl}`)
-      core.info(`repo: ${repo.owner}/${repo.repo}`)
-      core.info(`sha: ${sha}`)
-      core.info(`commitUrl: ${commitUrl}`)
-      core.info(`pwd: ${pwd}`)
-    }
+    core.debug(`serverUrl: ${serverUrl}`)
+    core.debug(`repo: ${repo.owner}/${repo.repo}`)
+    core.debug(`sha: ${sha}`)
+    core.debug(`commitUrl: ${commitUrl}`)
+    core.debug(`pwd: ${pwd}`)
 
     const c: httpClient = {
       url: url,
@@ -99,12 +86,10 @@ export async function run(): Promise<void> {
         changeType: changeType
       })
 
-      if (debug) {
-        core.info(`file: ${relativePath}`)
-        core.info(`version: ${version}`)
-        core.info(`content: ${content}`)
-        core.info(`changeType: ${changeType}`)
-      }
+      core.debug(`file: ${relativePath}`)
+      core.debug(`version: ${version}`)
+      core.debug(`content: ${content}`)
+      core.debug(`changeType: ${changeType}`)
     }
     if (files.length === 0) {
       throw new Error(
@@ -117,8 +102,7 @@ export async function run(): Promise<void> {
       project,
       files,
       targets.split(','),
-      checkReleaseLevel,
-      debug
+      checkReleaseLevel
     )
 
     if (validateOnly) {
@@ -248,8 +232,7 @@ async function doCheckRelease(
   project: string,
   files: File[],
   targets: string[],
-  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR',
-  debug?: boolean
+  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR'
 ) {
   if (checkReleaseLevel === 'SKIP') {
     return
@@ -266,9 +249,7 @@ async function doCheckRelease(
     }
   })
 
-  if (debug) {
-    core.info(`filesToCheck: ${JSON.stringify(filesToCheck)}`)
-  }
+  core.debug(`filesToCheck: ${JSON.stringify(filesToCheck)}`)
 
   const req = {
     release: {
@@ -284,9 +265,7 @@ async function doCheckRelease(
     } & CheckReleaseResponse
   >(url, req)
 
-  if (debug) {
-    core.info(`check release response: ${JSON.stringify(response)}`)
-  }
+  core.debug(`check release response: ${JSON.stringify(response)}`)
 
   if (response.statusCode !== 200) {
     throw new Error(
@@ -350,13 +329,8 @@ async function doCheckRelease(
 
 // Create a comment on the pull request with the release check summary results.
 // Including the total affected rows, overall risk level, and detailed results.
-async function handleCheckResponseForComment(
-  res: CheckReleaseResponse,
-  debug?: boolean
-) {
-  if (debug) {
-    core.info('handle check response for comment')
-  }
+async function handleCheckResponseForComment(res: CheckReleaseResponse) {
+  core.debug('start to create comment with check results')
   const context = github.context
   if (context.payload.pull_request == null) {
     core.setFailed('No pull request found.')
@@ -375,11 +349,13 @@ async function handleCheckResponseForComment(
   for (const result of res.results) {
     message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${result.riskLevel} |\n`
   }
-  await octokit.rest.issues.createComment({
+  const commentRes = await octokit.rest.issues.createComment({
     ...context.repo,
     issue_number: pull_request_number,
     body: message
   })
+  core.debug(`comment response: ${JSON.stringify(commentRes)}`)
+  core.debug(`comment created at ${commentRes.data.html_url}`)
 }
 
 interface httpClient {
