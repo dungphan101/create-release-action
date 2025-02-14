@@ -38,6 +38,9 @@ inputs:
       format: instances/{instance}/databases/{database} Database group example:
       `projects/exa/databaseGroups/mygroup` Database group format:
       projects/{project}/databaseGroups/{databaseGroup}
+  debug:
+    description: 'Enable debug mode.'
+    default: 'false'
 
 outputs:
   release:
