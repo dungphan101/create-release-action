@@ -320,7 +320,11 @@ async function doCheckRelease(
     core.info(annotation)
   }
 
-  await handleCheckResponseForComment(response.result)
+  try {
+    await handleCheckResponseForComment(response.result)
+  } catch (error) {
+    core.warning(`failed to create comment, error: ${error}`)
+  }
 
   if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
     throw new Error(`Release checks find ERROR or WARNING violations`)
@@ -339,6 +343,7 @@ async function handleCheckResponseForComment(res: CheckReleaseResponse) {
   const pull_request_number = context.payload.pull_request.number
   const githubToken = core.getInput('GITHUB_TOKEN')
   const octokit = github.getOctokit(githubToken)
+  core.debug(`Using token: ${githubToken}`)
 
   let message = `## Release Check Summary\n\n`
   message += `**Total Affected Rows:** ${res.affectedRows}\n`
