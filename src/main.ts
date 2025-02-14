@@ -16,9 +16,20 @@ export async function run(): Promise<void> {
     const project = core.getInput('project', { required: true })
     const filePattern = core.getInput('file-pattern', { required: true })
     const validateOnly = core.getBooleanInput('validate-only')
+    const debug = core.getBooleanInput('debug')
 
     const checkReleaseLevel = core.getInput('check-release')
     const targets = core.getInput('targets')
+
+    if (debug) {
+      core.info(`url: ${url}`)
+      core.info(`token: ${token}`)
+      core.info(`project: ${project}`)
+      core.info(`file-pattern: ${filePattern}`)
+      core.info(`validate-only: ${validateOnly}`)
+      core.info(`check-release: ${checkReleaseLevel}`)
+      core.info(`targets: ${targets}`)
+    }
 
     switch (checkReleaseLevel) {
       case 'SKIP':
@@ -38,6 +49,14 @@ export async function run(): Promise<void> {
     const { serverUrl, repo, sha } = github.context
     const pwd = process.env.GITHUB_WORKSPACE as string
     const commitUrl = `${serverUrl}/${repo.owner}/${repo.repo}/commits/${sha}`
+
+    if (debug) {
+      core.info(`serverUrl: ${serverUrl}`)
+      core.info(`repo: ${repo.owner}/${repo.repo}`)
+      core.info(`sha: ${sha}`)
+      core.info(`commitUrl: ${commitUrl}`)
+      core.info(`pwd: ${pwd}`)
+    }
 
     const c: httpClient = {
       url: url,
@@ -79,6 +98,13 @@ export async function run(): Promise<void> {
         type: 'VERSIONED',
         changeType: changeType
       })
+
+      if (debug) {
+        core.info(`file: ${relativePath}`)
+        core.info(`version: ${version}`)
+        core.info(`content: ${content}`)
+        core.info(`changeType: ${changeType}`)
+      }
     }
     if (files.length === 0) {
       throw new Error(
@@ -91,7 +117,8 @@ export async function run(): Promise<void> {
       project,
       files,
       targets.split(','),
-      checkReleaseLevel
+      checkReleaseLevel,
+      debug
     )
 
     if (validateOnly) {
@@ -221,7 +248,8 @@ async function doCheckRelease(
   project: string,
   files: File[],
   targets: string[],
-  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR'
+  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR',
+  debug?: boolean
 ) {
   if (checkReleaseLevel === 'SKIP') {
     return
@@ -238,6 +266,10 @@ async function doCheckRelease(
     }
   })
 
+  if (debug) {
+    core.info(`filesToCheck: ${JSON.stringify(filesToCheck)}`)
+  }
+
   const req = {
     release: {
       files: filesToCheck
@@ -251,6 +283,10 @@ async function doCheckRelease(
       message?: string
     } & CheckReleaseResponse
   >(url, req)
+
+  if (debug) {
+    core.info(`check release response: ${JSON.stringify(response)}`)
+  }
 
   if (response.statusCode !== 200) {
     throw new Error(
@@ -314,7 +350,13 @@ async function doCheckRelease(
 
 // Create a comment on the pull request with the release check summary results.
 // Including the total affected rows, overall risk level, and detailed results.
-async function handleCheckResponseForComment(res: CheckReleaseResponse) {
+async function handleCheckResponseForComment(
+  res: CheckReleaseResponse,
+  debug?: boolean
+) {
+  if (debug) {
+    core.info('handle check response for comment')
+  }
   const context = github.context
   if (context.payload.pull_request == null) {
     core.setFailed('No pull request found.')
