@@ -334,9 +334,9 @@ async function doCheckRelease(
 // Create a comment on the pull request with the release check summary results.
 // Including the total affected rows, overall risk level, and detailed results.
 async function handleCheckResponseForComment(res: CheckReleaseResponse) {
-  const githubToken = core.getInput('GITHUB_TOKEN')
+  const githubToken = process.env.GITHUB_TOKEN || ''
   core.debug(
-    `start to create comment with check results with context ${github.context} and githubToken ${githubToken}`
+    `start to create comment with check results with context ${JSON.stringify(github.context)} and githubToken ${githubToken}`
   )
   const context = github.context
   if (context.payload.pull_request == null) {
