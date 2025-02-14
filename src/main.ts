@@ -334,17 +334,17 @@ async function doCheckRelease(
 // Create a comment on the pull request with the release check summary results.
 // Including the total affected rows, overall risk level, and detailed results.
 async function handleCheckResponseForComment(res: CheckReleaseResponse) {
-  core.debug('start to create comment with check results')
+  const githubToken = core.getInput('GITHUB_TOKEN')
+  core.debug(
+    `start to create comment with check results with context ${github.context} and githubToken ${githubToken}`
+  )
   const context = github.context
   if (context.payload.pull_request == null) {
     core.setFailed('No pull request found.')
     return
   }
   const pull_request_number = context.payload.pull_request.number
-  const githubToken = core.getInput('GITHUB_TOKEN')
   const octokit = github.getOctokit(githubToken)
-  core.debug(`Using token: ${githubToken}`)
-
   let message = `## Release Check Summary\n\n`
   message += `**Total Affected Rows:** ${res.affectedRows}\n`
   message += `**Overall Risk Level:** ${res.riskLevel}\n\n`
