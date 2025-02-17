@@ -345,14 +345,14 @@ async function handleCheckResponseForComment(res: CheckReleaseResponse) {
   }
   const pull_request_number = context.payload.pull_request.number
   const octokit = github.getOctokit(githubToken)
-  let message = `## Release Check Summary\n\n`
-  message += `**Total Affected Rows:** ${res.affectedRows}\n`
-  message += `**Overall Risk Level:** ${res.riskLevel}\n\n`
+  let message = `## SQL Review Summary\n\n`
+  message += `* Total Affected Rows: **${res.affectedRows}**\n`
+  message += `* Overall Risk Level: **${stringifyRiskLevel(res.riskLevel)}**\n\n`
   message += `### Detailed Results\n`
   message += `| File | Target | Affected Rows | Risk Level |\n`
   message += `| ---- | ------ | ------------- | ---------- |\n`
   for (const result of res.results) {
-    message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${result.riskLevel} |\n`
+    message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${stringifyRiskLevel(result.riskLevel)} |\n`
   }
   const commentRes = await octokit.rest.issues.createComment({
     ...context.repo,
@@ -361,6 +361,19 @@ async function handleCheckResponseForComment(res: CheckReleaseResponse) {
   })
   core.debug(`comment response: ${JSON.stringify(commentRes)}`)
   core.debug(`comment created at ${commentRes.data.html_url}`)
+}
+
+function stringifyRiskLevel(riskLevel: string): string {
+  switch (riskLevel) {
+    case 'LOW':
+      return '🟢 Low'
+    case 'MODERATE':
+      return '🟡 Moderate'
+    case 'HIGH':
+      return '🔴 High'
+    default:
+      return '⚪ None'
+  }
 }
 
 interface httpClient {
