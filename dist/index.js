@@ -32614,20 +32614,23 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
         },
         targets: targets
     };
-    const response = await c.c.postJson(url, req);
-    core.debug(`check release response: ${JSON.stringify(response)}`);
-    if (response.statusCode !== 200) {
-        throw new Error(`failed to create release, ${response.statusCode}, ${response.result?.message}`);
+    // Use raw fetch to handle jsonify error response body.
+    const response = await c.c.post(url, JSON.stringify(req), {
+        'Content-Type': 'application/json'
+    });
+    const body = JSON.parse(await response.readBody());
+    core.debug(`check release response: ${JSON.stringify(body)}`);
+    // Check for errors in the response.
+    if (typeof body.message === 'string' && body.message !== '') {
+        throw new Error(`failed to check release, error: ${body.message}`);
     }
-    if (!response.result) {
-        throw new Error(`expect result to be not null, get ${response.result}`);
-    }
+    const checkReleaseResponse = body;
     // Aggregate advice by file and targets.
     // Key is combination of file and advice's specific fields.
     let adviceMapByFileTarget = new Map();
     let hasError = false;
     let hasWarning = false;
-    for (const result of response.result.results) {
+    for (const result of checkReleaseResponse.results) {
         const file = result.file;
         const target = result.target;
         const advices = result.advices;
@@ -32656,7 +32659,7 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
         core.info(annotation);
     }
     try {
-        await handleCheckResponseForComment(response.result);
+        await handleCheckResponseForComment(checkReleaseResponse);
     }
     catch (error) {
         core.warning(`failed to create comment, error: ${error}`);
