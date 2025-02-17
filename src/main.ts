@@ -102,7 +102,8 @@ export async function run(): Promise<void> {
       project,
       files,
       targets.split(','),
-      checkReleaseLevel
+      checkReleaseLevel,
+      validateOnly
     )
 
     if (validateOnly) {
@@ -232,7 +233,8 @@ async function doCheckRelease(
   project: string,
   files: File[],
   targets: string[],
-  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR'
+  checkReleaseLevel: 'SKIP' | 'FAIL_ON_WARNING' | 'FAIL_ON_ERROR',
+  validateOnly: boolean
 ) {
   if (checkReleaseLevel === 'SKIP') {
     return
@@ -314,14 +316,17 @@ async function doCheckRelease(
     core.info(annotation)
   }
 
-  try {
-    await handleCheckResponseForComment(checkReleaseResponse)
-  } catch (error) {
-    core.warning(`failed to create comment, error: ${error}`)
-  }
-
   if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
     throw new Error(`Release checks find ERROR or WARNING violations`)
+  }
+
+  // If validateOnly is true, create a comment with the check results.
+  if (validateOnly) {
+    try {
+      await handleCheckResponseForComment(checkReleaseResponse)
+    } catch (error) {
+      core.warning(`failed to create comment, error: ${error}`)
+    }
   }
 }
 

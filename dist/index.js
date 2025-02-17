@@ -32519,7 +32519,7 @@ async function run() {
         if (files.length === 0) {
             throw new Error(`no migration files found, the file pattern is ${filePattern}`);
         }
-        await doCheckRelease(c, project, files, targets.split(','), checkReleaseLevel);
+        await doCheckRelease(c, project, files, targets.split(','), checkReleaseLevel, validateOnly);
         if (validateOnly) {
             return;
         }
@@ -32593,7 +32593,7 @@ async function createRelease(c, project, releaseToCreate) {
     }
     return response.result.name;
 }
-async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
+async function doCheckRelease(c, project, files, targets, checkReleaseLevel, validateOnly) {
     if (checkReleaseLevel === 'SKIP') {
         return;
     }
@@ -32658,14 +32658,17 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel) {
         // Emit annotations for each advice
         core.info(annotation);
     }
-    try {
-        await handleCheckResponseForComment(checkReleaseResponse);
-    }
-    catch (error) {
-        core.warning(`failed to create comment, error: ${error}`);
-    }
     if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
         throw new Error(`Release checks find ERROR or WARNING violations`);
+    }
+    // If validateOnly is true, create a comment with the check results.
+    if (validateOnly) {
+        try {
+            await handleCheckResponseForComment(checkReleaseResponse);
+        }
+        catch (error) {
+            core.warning(`failed to create comment, error: ${error}`);
+        }
     }
 }
 // Create a comment on the pull request with the release check summary results.
