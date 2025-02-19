@@ -54,8 +54,7 @@ export const upsertComment = async (res: CheckReleaseResponse) => {
       <th>Advices</th>
     </tr>
   </thead>
-  <tbody>
-`
+  <tbody>`
 
   for (const result of res.results) {
     if (message.length > maxCommentLength - 1000) {
@@ -74,15 +73,13 @@ export const upsertComment = async (res: CheckReleaseResponse) => {
     if (warningAdvicesCount > 0) {
       advicesCell += `🟡 ${warningAdvicesCount} Warning(s)\n`
     }
-    message += `
-    <tr>
-      <td>${result.file}</td>
-      <td>${result.target}</td>
-      <td>${result.affectedRows}</td>
-      <td>${stringifyRiskLevel(result.riskLevel)}</td>
-      <td>${advicesCell}</td>
-    </tr>
-  `
+    message += `<tr>
+  <td>${result.file}</td>
+  <td>${result.target}</td>
+  <td>${result.affectedRows}</td>
+  <td>${stringifyRiskLevel(result.riskLevel)}</td>
+  <td>${advicesCell}</td>
+</tr>`
   }
   message += `</tbody></table>`
 
@@ -107,7 +104,7 @@ export const upsertComment = async (res: CheckReleaseResponse) => {
     await octokit.rest.issues.createComment({
       ...context.repo,
       issue_number: prNumber,
-      body: message
+      body: `${startMarker}\n${message}`
     })
   }
 }
