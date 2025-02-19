@@ -4,6 +4,16 @@ import * as glob from '@actions/glob'
 import * as github from '@actions/github'
 import { readFile } from 'fs/promises'
 import path from 'path'
+import {
+  ChangeType,
+  CheckReleaseResponse,
+  httpClient,
+  Release,
+  ReleaseFile,
+  Sheet,
+  File
+} from './type'
+import { upsertComment } from './comment'
 
 /**
  * The main function for the action.
@@ -70,7 +80,7 @@ export async function run(): Promise<void> {
       const content = await readFile(file, { encoding: 'base64' })
 
       const filename = path.parse(relativePath).name
-      let changeType: changeType = 'DDL'
+      let changeType: ChangeType = 'DDL'
       if (filename.endsWith('dml')) {
         changeType = 'DML'
       }
@@ -216,18 +226,6 @@ async function createRelease(
   return response.result.name
 }
 
-interface CheckReleaseResponse {
-  results: {
-    file: string
-    target: string
-    advices: any[]
-    affectedRows: number
-    riskLevel: string
-  }[]
-  affectedRows: number
-  riskLevel: string
-}
-
 async function doCheckRelease(
   c: httpClient,
   project: string,
@@ -320,95 +318,12 @@ async function doCheckRelease(
     throw new Error(`Release checks find ERROR or WARNING violations`)
   }
 
-  // If validateOnly is true, create a comment with the check results.
+  // If validateOnly is true, upsert a comment with the check results.
   if (validateOnly) {
     try {
-      await handleCheckResponseForComment(checkReleaseResponse)
+      await upsertComment(checkReleaseResponse)
     } catch (error) {
       core.warning(`failed to create comment, error: ${error}`)
     }
-  }
-}
-
-// Create a comment on the pull request with the release check summary results.
-// Including the total affected rows, overall risk level, and detailed results.
-async function handleCheckResponseForComment(res: CheckReleaseResponse) {
-  const githubToken = process.env.GITHUB_TOKEN || ''
-  core.debug(
-    `start to create comment with check results with context ${JSON.stringify(github.context)} and githubToken ${githubToken}`
-  )
-  const context = github.context
-  if (context.payload.pull_request == null) {
-    core.setFailed('No pull request found.')
-    return
-  }
-  const pull_request_number = context.payload.pull_request.number
-  const octokit = github.getOctokit(githubToken)
-  let message = `## SQL Review Summary\n\n`
-  message += `* Total Affected Rows: **${res.affectedRows}**\n`
-  message += `* Overall Risk Level: **${stringifyRiskLevel(res.riskLevel)}**\n\n`
-  message += `### Detailed Results\n`
-  message += `| File | Target | Affected Rows | Risk Level |\n`
-  message += `| ---- | ------ | ------------- | ---------- |\n`
-  for (const result of res.results) {
-    message += `| ${result.file} | ${result.target} | ${result.affectedRows} | ${stringifyRiskLevel(result.riskLevel)} |\n`
-  }
-  const commentRes = await octokit.rest.issues.createComment({
-    ...context.repo,
-    issue_number: pull_request_number,
-    body: message
-  })
-  core.debug(`comment response: ${JSON.stringify(commentRes)}`)
-  core.debug(`comment created at ${commentRes.data.html_url}`)
-}
-
-function stringifyRiskLevel(riskLevel: string): string {
-  switch (riskLevel) {
-    case 'LOW':
-      return '🟢 Low'
-    case 'MODERATE':
-      return '🟡 Moderate'
-    case 'HIGH':
-      return '🔴 High'
-    default:
-      return '⚪ None'
-  }
-}
-
-interface httpClient {
-  c: hc.HttpClient
-  url: string
-  token: string
-}
-
-interface Sheet {
-  title: string
-  content: string // base64 encoded
-}
-
-type changeType = 'DDL' | 'DML' | 'DDL_GHOST'
-
-interface File {
-  content: string // base64 encoded
-  path: string
-  version: string
-  type: 'VERSIONED'
-  changeType: changeType
-}
-
-interface ReleaseFile {
-  path: string
-  version: string
-  sheet: string
-  type: 'VERSIONED'
-  changeType: changeType
-}
-
-interface Release {
-  title: string
-  files: ReleaseFile[]
-  vcsSource: {
-    vcsType: 'GITHUB'
-    url: string
   }
 }
