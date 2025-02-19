@@ -66,7 +66,7 @@ export const upsertComment = async (res: CheckReleaseResponse) => {
     const warningAdvicesCount = result.advices.filter(
       advice => advice.level === 'WARNING'
     ).length
-    let advicesCell = ''
+    let advicesCell = '-'
     if (errorAdvicesCount > 0) {
       advicesCell += `🔴 ${errorAdvicesCount} Error(s)\n`
     }
