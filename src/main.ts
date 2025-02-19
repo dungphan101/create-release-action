@@ -314,10 +314,6 @@ async function doCheckRelease(
     core.info(annotation)
   }
 
-  if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
-    throw new Error(`Release checks find ERROR or WARNING violations`)
-  }
-
   // If validateOnly is true, upsert a comment with the check results.
   if (validateOnly) {
     try {
@@ -325,5 +321,9 @@ async function doCheckRelease(
     } catch (error) {
       core.warning(`failed to create comment, error: ${error}`)
     }
+  }
+
+  if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
+    throw new Error(`Release checks find ERROR or WARNING violations`)
   }
 }
