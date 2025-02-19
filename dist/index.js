@@ -32479,7 +32479,7 @@ const upsertComment = async (res) => {
         }
         const errorAdvicesCount = result.advices.filter(advice => advice.level === 'ERROR').length;
         const warningAdvicesCount = result.advices.filter(advice => advice.level === 'WARNING').length;
-        let advicesCell = '';
+        let advicesCell = '-';
         if (errorAdvicesCount > 0) {
             advicesCell += `🔴 ${errorAdvicesCount} Error(s)\n`;
         }
