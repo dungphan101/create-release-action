@@ -14,6 +14,12 @@ Github action to create a release on Bytebase.
 | validate-only | No       | `false`         | Used to check release only. Won't create the release.                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Boolean |
 | targets       | No       | N/A             | The database group or databases to check the release against. This must be provided if `check-release` is set to `FAIL_ON_ERROR` or `FAIL_ON_WARNING`. Either a comma separated list of the databases or a database group. Databases example: `instances/mysql1/databases/db1,instances/mysql1/databases/db2`. Database format: instances/{instance}/databases/{database} Database group example: `projects/exa/databaseGroups/mygroup` Database group format: `projects/{project}/databaseGroups/{databaseGroup}` | String  |
 
+The migration filename **must** start with digits indicating its version. It can optionally end with `dml` or `ghost` to indicate its change type. The default change type is `ddl`.
+
+Examples:
+- 20250101001_add_column.sql
+- 20250101002_fill_default_data_dml.sql
+
 ## Example
 
 ```yaml
