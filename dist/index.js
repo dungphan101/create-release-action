@@ -32450,8 +32450,8 @@ const upsertComment = async (res) => {
     const prNumber = context.payload.pull_request.number;
     // Marker to find the comment to update.
     const startMarker = `<!--BYTEBASE_MARKER-PR_${prNumber}-DO_NOT_EDIT-->`;
-    const totalErrorAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.level === 'ERROR').length, 0);
-    const totalWarningAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.level === 'WARNING').length, 0);
+    const totalErrorAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.status === 'ERROR').length, 0);
+    const totalWarningAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.status === 'WARNING').length, 0);
     // Construct the comment message.
     let message = `
 ## SQL Review Summary
@@ -32477,8 +32477,10 @@ const upsertComment = async (res) => {
         if (message.length > maxCommentLength - 1000) {
             break;
         }
-        const errorAdvicesCount = result.advices.filter(advice => advice.level === 'ERROR').length;
-        const warningAdvicesCount = result.advices.filter(advice => advice.level === 'WARNING').length;
+        const errorAdvicesCount = result.advices.filter(advice => advice.status === 'ERROR').length;
+        const warningAdvicesCount = result.advices.filter(advice => advice.status === 'WARNING').length;
+        core.debug(`result: ${JSON.stringify(result)}`);
+        core.debug(`errorAdvicesCount: ${errorAdvicesCount}`);
         let advicesCell = '-';
         if (errorAdvicesCount > 0) {
             advicesCell += `🔴 ${errorAdvicesCount} Error(s)\n`;
