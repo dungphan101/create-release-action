@@ -32481,12 +32481,16 @@ const upsertComment = async (res) => {
         const warningAdvicesCount = result.advices.filter(advice => advice.status === 'WARNING').length;
         core.debug(`result: ${JSON.stringify(result)}`);
         core.debug(`errorAdvicesCount: ${errorAdvicesCount}`);
-        let advicesCell = '-';
+        const countSlice = [];
         if (errorAdvicesCount > 0) {
-            advicesCell += `🔴 ${errorAdvicesCount} Error(s)\n`;
+            countSlice.push(`${errorAdvicesCount} Error(s)`);
         }
         if (warningAdvicesCount > 0) {
-            advicesCell += `🟡 ${warningAdvicesCount} Warning(s)\n`;
+            countSlice.push(`${warningAdvicesCount} Warning(s)`);
+        }
+        let advicesCell = '-';
+        if (countSlice.length > 0) {
+            advicesCell = countSlice.join(', ');
         }
         message += `<tr>
   <td>${result.file}</td>
