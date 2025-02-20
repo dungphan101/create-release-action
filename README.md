@@ -2,6 +2,27 @@
 
 Github action to create a release on Bytebase.
 
+
+# Naming scheme
+
+The migration files matched by `file-pattern` are assumed to follow a naming scheme.
+It should start with digit version numbers, separated by underscore, and optionally end with
+a change type. Format: `path/to/migrations/<<version>>_xxxx_<<changeType>>.sql`
+This action determines the change type of a file by how its filename ends. The
+default change type is schema change.
+
+Examples:
+- 20250101001_add_column.sql
+- 20250101002_fill_default_data_dml.sql
+
+
+| Ends with | Type                 |
+| --------- | -------------------- |
+| ddl       | schema change        |
+| ghost     | online schema change |
+| dml       | data change          |
+
+
 # Inputs
 
 | Input Name    | Required | Default Value   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Type    |
@@ -13,12 +34,6 @@ Github action to create a release on Bytebase.
 | check-release | No       | `FAIL_ON_ERROR` | Whether to run checks on the release Valid values are: `SKIP`, `FAIL_ON_WARNING`, `FAIL_ON_ERROR`. `targets` must be provided if `check-release` is set to `FAIL_ON_ERROR` or `FAIL_ON_WARNING`.                                                                                                                                                                                                                                                                                                                   | String  |
 | validate-only | No       | `false`         | Used to check release only. Won't create the release.                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Boolean |
 | targets       | No       | N/A             | The database group or databases to check the release against. This must be provided if `check-release` is set to `FAIL_ON_ERROR` or `FAIL_ON_WARNING`. Either a comma separated list of the databases or a database group. Databases example: `instances/mysql1/databases/db1,instances/mysql1/databases/db2`. Database format: instances/{instance}/databases/{database} Database group example: `projects/exa/databaseGroups/mygroup` Database group format: `projects/{project}/databaseGroups/{databaseGroup}` | String  |
-
-The migration filename **must** start with digits indicating its version. It can optionally end with `dml` or `ghost` to indicate its change type. The default change type is `ddl`.
-
-Examples:
-- 20250101001_add_column.sql
-- 20250101002_fill_default_data_dml.sql
 
 ## Example
 
