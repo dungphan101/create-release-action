@@ -287,6 +287,9 @@ async function doCheckRelease(
     const file = result.file
     const target = result.target
     const advices = result.advices
+    if (!advices) {
+      continue
+    }
 
     for (const advice of advices) {
       const key = `${file}-${advice.status}-${advice.code}-${advice.line}-${advice.column}-${advice.title}`

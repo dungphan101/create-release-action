@@ -2,26 +2,25 @@
 
 Github action to create a release on Bytebase.
 
-
 # Naming scheme
 
-The migration files matched by `file-pattern` are assumed to follow a naming scheme.
-It should start with digit version numbers, separated by underscore, and optionally end with
-a change type. Format: `path/to/migrations/<<version>>_xxxx_<<changeType>>.sql`
-This action determines the change type of a file by how its filename ends. The
-default change type is schema change.
+The migration files matched by `file-pattern` are assumed to follow a naming
+scheme. It should start with digit version numbers, separated by underscore, and
+optionally end with a change type. Format:
+`path/to/migrations/<<version>>_xxxx_<<changeType>>.sql` This action determines
+the change type of a file by how its filename ends. The default change type is
+schema change.
 
 Examples:
+
 - 20250101001_add_column.sql
 - 20250101002_fill_default_data_dml.sql
-
 
 | Ends with | Type                 |
 | --------- | -------------------- |
 | ddl       | schema change        |
 | ghost     | online schema change |
 | dml       | data change          |
-
 
 # Inputs
 
