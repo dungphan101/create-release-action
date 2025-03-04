@@ -284,7 +284,7 @@ async function doCheckRelease(
   > = new Map()
   let hasError = false
   let hasWarning = false
-  for (const result of checkReleaseResponse.results) {
+  for (const result of checkReleaseResponse.results ?? []) {
     const file = result.file
     const target = result.target
     const advices = result.advices

@@ -32450,8 +32450,11 @@ const upsertComment = async (res) => {
     const prNumber = context.payload.pull_request.number;
     // Marker to find the comment to update.
     const startMarker = `<!--BYTEBASE_MARKER-PR_${prNumber}-DO_NOT_EDIT-->`;
-    const totalErrorAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.status === 'ERROR').length, 0);
-    const totalWarningAdviceCount = res.results.reduce((acc, result) => acc + result.advices.filter(advice => advice.status === 'WARNING').length, 0);
+    const totalErrorAdviceCount = (res.results ?? []).reduce((acc, result) => acc +
+        (result.advices ?? []).filter(advice => advice.status === 'ERROR').length, 0);
+    const totalWarningAdviceCount = (res.results ?? []).reduce((acc, result) => acc +
+        (result.advices ?? []).filter(advice => advice.status === 'WARNING')
+            .length, 0);
     // Construct the comment message.
     let message = `
 ## SQL Review Summary
@@ -32473,12 +32476,12 @@ const upsertComment = async (res) => {
     </tr>
   </thead>
   <tbody>`;
-    for (const result of res.results) {
+    for (const result of res.results ?? []) {
         if (message.length > maxCommentLength - 1000) {
             break;
         }
-        const errorAdvicesCount = result.advices.filter(advice => advice.status === 'ERROR').length;
-        const warningAdvicesCount = result.advices.filter(advice => advice.status === 'WARNING').length;
+        const errorAdvicesCount = (result.advices ?? []).filter(advice => advice.status === 'ERROR').length;
+        const warningAdvicesCount = (result.advices ?? []).filter(advice => advice.status === 'WARNING').length;
         core.debug(`result: ${JSON.stringify(result)}`);
         core.debug(`errorAdvicesCount: ${errorAdvicesCount}`);
         const countSlice = [];
@@ -32781,7 +32784,7 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel, val
     let adviceMapByFileTarget = new Map();
     let hasError = false;
     let hasWarning = false;
-    for (const result of checkReleaseResponse.results) {
+    for (const result of checkReleaseResponse.results ?? []) {
         const file = result.file;
         const target = result.target;
         const advices = result.advices;

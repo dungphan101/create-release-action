@@ -7,13 +7,15 @@ export interface httpClient {
 }
 
 export interface CheckReleaseResponse {
-  results: {
-    file: string
-    target: string
-    advices: any[]
-    affectedRows: number
-    riskLevel: string
-  }[]
+  results:
+    | {
+        file: string
+        target: string
+        advices: any[] | undefined
+        affectedRows: number
+        riskLevel: string
+      }[]
+    | undefined
   affectedRows: number
   riskLevel: string
 }
