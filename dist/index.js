@@ -32591,6 +32591,8 @@ const github = __importStar(__nccwpck_require__(2819));
 const promises_1 = __nccwpck_require__(1943);
 const path_1 = __importDefault(__nccwpck_require__(6928));
 const comment_1 = __nccwpck_require__(3012);
+// Currently, we only support numeric version.
+const versionReg = /^\d+/;
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -32635,13 +32637,12 @@ async function run() {
             })
         };
         const globber = await glob.create(filePattern);
-        const versionReg = /^\d+/;
         const files = [];
         for await (const file of globber.globGenerator()) {
             const relativePath = path_1.default.relative(pwd, file);
             const versionM = path_1.default.basename(file).match(versionReg);
             if (!versionM) {
-                core.info(`failed to get version, ignore ${file}`);
+                core.warning(`failed to get version, ignore ${file}`);
                 continue;
             }
             const version = versionM[0];

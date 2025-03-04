@@ -15,6 +15,9 @@ import {
 } from './type'
 import { upsertComment } from './comment'
 
+// Currently, we only support numeric version.
+const versionReg = /^\d+/
+
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -66,14 +69,12 @@ export async function run(): Promise<void> {
     }
 
     const globber = await glob.create(filePattern)
-    const versionReg = /^\d+/
-
     const files: File[] = []
     for await (const file of globber.globGenerator()) {
       const relativePath = path.relative(pwd, file)
       const versionM = path.basename(file).match(versionReg)
       if (!versionM) {
-        core.info(`failed to get version, ignore ${file}`)
+        core.warning(`failed to get version, ignore ${file}`)
         continue
       }
       const version = versionM[0]
