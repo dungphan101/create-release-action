@@ -2,6 +2,10 @@
 
 Github action to create a release on Bytebase.
 
+- Tutorial:
+  [Database GitOps with GitHub Actions](https://www.bytebase.com/docs/tutorials/gitops-github-workflow/)
+- Sample repo: https://github.com/bytebase/example-gitops-github-flow
+
 # Naming scheme
 
 The migration files matched by `file-pattern` are assumed to follow a naming
