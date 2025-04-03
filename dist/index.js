@@ -32633,7 +32633,7 @@ async function run() {
         const c = {
             url: url,
             token: token,
-            c: new hc.HttpClient('actions-create-release', [], {
+            c: new hc.HttpClient('create-release-action', [], {
                 headers: {
                     authorization: `Bearer ${token}`
                 }
@@ -32755,7 +32755,7 @@ async function doCheckRelease(c, project, files, targets, checkReleaseLevel, val
     const filesToCheck = files.map(e => {
         return {
             path: e.path,
-            statement: Buffer.from(e.content, 'base64').toString('utf8'),
+            statement: e.content,
             version: e.version,
             changeType: e.changeType,
             type: e.type

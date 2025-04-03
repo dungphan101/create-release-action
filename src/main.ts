@@ -61,7 +61,7 @@ export async function run(): Promise<void> {
     const c: httpClient = {
       url: url,
       token: token,
-      c: new hc.HttpClient('actions-create-release', [], {
+      c: new hc.HttpClient('create-release-action', [], {
         headers: {
           authorization: `Bearer ${token}`
         }
@@ -243,7 +243,7 @@ async function doCheckRelease(
   const filesToCheck = files.map(e => {
     return {
       path: e.path,
-      statement: Buffer.from(e.content, 'base64').toString('utf8'),
+      statement: e.content,
       version: e.version,
       changeType: e.changeType,
       type: e.type
