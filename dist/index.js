@@ -32709,7 +32709,7 @@ async function run() {
         const release = await createRelease(c, project, releaseToCreate);
         core.info(`Release created. View at ${c.url}/${release} on Bytebase.`);
         // reject out-of-order version: using previewPlan
-        await previewPlan(c, project, release, targetList);
+        const planToCreate = await previewPlan(c, project, release, targetList);
         core.setOutput('release', release);
     }
     catch (error) {
@@ -32739,7 +32739,6 @@ async function previewPlan(c, project, release, targets) {
     if (response.result.appliedButModifiedFiles &&
         response.result.appliedButModifiedFiles.length > 0) {
         core.warning(`found applied but modified files\n${formatDatabaseFiles(response.result.appliedButModifiedFiles)}`);
-        throw new Error(`failed to create release: found applied but modified files\n${formatDatabaseFiles(response.result.appliedButModifiedFiles)}`);
     }
     return response.result.plan;
 }
