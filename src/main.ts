@@ -206,11 +206,8 @@ async function previewPlan(
     response.result.outOfOrderFiles &&
     response.result.outOfOrderFiles.length > 0
   ) {
-    core.error(
+    core.warning(
       `found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`
-    )
-    throw new Error(
-      `failed to create release: found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`
     )
   }
   if (

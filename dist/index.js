@@ -32733,8 +32733,7 @@ async function previewPlan(c, project, release, targets) {
     }
     if (response.result.outOfOrderFiles &&
         response.result.outOfOrderFiles.length > 0) {
-        core.error(`found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
-        throw new Error(`failed to create release: found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
+        core.warning(`found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
     }
     if (response.result.appliedButModifiedFiles &&
         response.result.appliedButModifiedFiles.length > 0) {
