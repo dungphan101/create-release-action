@@ -182,7 +182,7 @@ async function previewPlan(
   const request = {
     release: release,
     targets: targets,
-    allowOutOfOrder: true
+    allowOutOfOrder: false
   }
 
   const response = await c.c.postJson<{
@@ -206,7 +206,7 @@ async function previewPlan(
     response.result.outOfOrderFiles &&
     response.result.outOfOrderFiles.length > 0
   ) {
-    core.warning(
+    core.error(
       `found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`
     )
     throw new Error(

@@ -32722,7 +32722,7 @@ async function previewPlan(c, project, release, targets) {
     const request = {
         release: release,
         targets: targets,
-        allowOutOfOrder: true
+        allowOutOfOrder: false
     };
     const response = await c.c.postJson(url, request);
     if (response.statusCode !== 200) {
@@ -32733,7 +32733,7 @@ async function previewPlan(c, project, release, targets) {
     }
     if (response.result.outOfOrderFiles &&
         response.result.outOfOrderFiles.length > 0) {
-        core.warning(`found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
+        core.error(`found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
         throw new Error(`failed to create release: found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`);
     }
     if (response.result.appliedButModifiedFiles &&
