@@ -11,7 +11,8 @@ import {
   Release,
   ReleaseFile,
   Sheet,
-  File
+  File,
+  DatabaseFiles
 } from './type'
 import { upsertComment } from './comment'
 
@@ -107,12 +108,14 @@ export async function run(): Promise<void> {
         `no migration files found, the file pattern is ${filePattern}`
       )
     }
-
+    
+    const targetList = targets.split(',')
+    
     await doCheckRelease(
       c,
       project,
       files,
-      targets.split(','),
+      targetList,
       checkReleaseLevel,
       validateOnly
     )
@@ -159,10 +162,78 @@ export async function run(): Promise<void> {
 
     core.info(`Release created. View at ${c.url}/${release} on Bytebase.`)
 
+    // reject out-of-order version: using previewPlan
+    await previewPlan(c, project, release, targetList)
+
     core.setOutput('release', release)
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
   }
+}
+
+async function previewPlan(
+  c: httpClient,
+  project: string,
+  release: string,
+  targets: string[]
+): Promise<any> {
+  const url = `${c.url}/v1/${project}:previewPlan`
+
+  const request = {
+    release: release,
+    targets: targets,
+    allowOutOfOrder: true
+  }
+
+  const response = await c.c.postJson<{
+    message: string
+    plan: any
+    outOfOrderFiles?: DatabaseFiles[]
+    appliedButModifiedFiles?: DatabaseFiles[]
+  }>(url, request)
+
+  if (response.statusCode !== 200) {
+    throw new Error(
+      `failed to create release, ${response.statusCode}, ${response.result?.message}`
+    )
+  }
+
+  if (!response.result) {
+    throw new Error(`expect result to be not null, get ${response.result}`)
+  }
+
+  if (
+    response.result.outOfOrderFiles &&
+    response.result.outOfOrderFiles.length > 0
+  ) {
+    core.warning(
+      `found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`
+    )
+    throw new Error(
+      `failed to create release: found out of order files\n${formatDatabaseFiles(response.result.outOfOrderFiles)}`
+    )
+  }
+  if (
+    response.result.appliedButModifiedFiles &&
+    response.result.appliedButModifiedFiles.length > 0
+  ) {
+    core.warning(
+      `found applied but modified files\n${formatDatabaseFiles(response.result.appliedButModifiedFiles)}`
+    )
+    throw new Error(
+      `failed to create release: found applied but modified files\n${formatDatabaseFiles(response.result.appliedButModifiedFiles)}`
+    )
+  }
+
+  return response.result.plan
+}
+
+function formatDatabaseFiles(databaseFiles: DatabaseFiles[]): string {
+  return databaseFiles
+    .map(e => {
+      return `e.database:` + e.files.join(',')
+    })
+    .join('\n')
 }
 
 async function createSheets(
@@ -330,4 +401,6 @@ async function doCheckRelease(
   if (hasError || (hasWarning && checkReleaseLevel === 'FAIL_ON_WARNING')) {
     throw new Error(`Release checks find ERROR or WARNING violations`)
   }
+
+
 }

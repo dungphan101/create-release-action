@@ -51,3 +51,9 @@ export interface Release {
     url: string
   }
 }
+
+export interface DatabaseFiles {
+  database: string
+  files: string[]
+}
+
